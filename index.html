@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Voedingstracker</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Voeding">
+<meta name="theme-color" content="#EEF2EA" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E1512" media="(prefers-color-scheme: dark)">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+/* Layout: one phone-width column; a dark pine hero carries the day's ring, everything else stays quiet on paper. */
+:root{
+  --bg:#EEF2EA; --surface:#FFFFFF; --ink:#14231B; --muted:#5F7268; --line:#DCE4D8;
+  --accent:#1F8A4C; --protein:#D9532B; --warn:#A8660F;
+  --hero:#14331F; --hero-ink:#F1F7EC; --hero-muted:#A9C2AE; --hero-track:#27492F; --lime:#B8F26B; --peach:#FFB08A;
+  --display:ui-rounded,"SF Pro Rounded",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0E1512; --surface:#18221D; --ink:#E8EFE9; --muted:#93A69B; --line:#2A3830;
+    --accent:#4CC27E; --protein:#F08A5D; --warn:#E0A95A;
+    --hero:#1B3B25; --hero-track:#2E5438; color-scheme:dark;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.4;font-variant-numeric:tabular-nums;overscroll-behavior-y:none}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{max-width:480px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(96px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));display:flex;flex-direction:column;gap:14px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.top[hidden]{display:none}
+.top .date{text-align:center;display:flex;flex-direction:column}
+.top .date b{font-family:var(--display);font-size:20px;font-weight:700;text-transform:capitalize}
+.top .date small{color:var(--muted);font-size:13px}
+.icon-btn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:18px;line-height:1;flex:none}
+.icon-btn:disabled{opacity:.35;cursor:default}
+#view{display:flex;flex-direction:column;gap:14px}
+
+.hero{background:var(--hero);color:var(--hero-ink);border-radius:24px;padding:16px;display:flex;flex-direction:column;gap:16px}
+.hero-top{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.chip-select{background:var(--hero-track);color:var(--hero-ink);border:0;border-radius:999px;padding:7px 12px;font-size:16px;font-weight:600;max-width:100%}
+.pill{font-size:13px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--hero-track);color:var(--hero-ink);white-space:nowrap}
+.pill.ok{background:var(--lime);color:#14331F}
+.pill.over{background:var(--peach);color:#4A1C08}
+.ring-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px}
+.side{display:flex;flex-direction:column;align-items:center;text-align:center}
+.side b{font-family:var(--display);font-size:18px;font-weight:700}
+.side span{font-size:12px;color:var(--hero-muted)}
+.ring{position:relative;width:146px;height:146px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:11;stroke-linecap:round}
+.ring .tr{stroke:var(--hero-track)}
+.ring .pr{stroke:var(--lime);transition:stroke-dashoffset .5s ease}
+.ring.over .pr{stroke:var(--peach)}
+.ring-c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.ring-c b{font-family:var(--display);font-size:36px;font-weight:700;line-height:1}
+.ring-c span{font-size:12px;color:var(--hero-muted);margin-top:4px}
+.prot{display:flex;flex-direction:column;gap:6px}
+.prot-h{display:flex;align-items:baseline;gap:6px;font-size:14px;flex-wrap:wrap}
+.prot-h b{font-family:var(--display);font-size:20px}
+.prot-h .st{margin-left:auto;font-weight:600;color:var(--peach)}
+.prot-h .st.ok{color:var(--lime)}
+.pbar{position:relative;height:12px;border-radius:999px;background:var(--hero-track);overflow:hidden}
+.pbar i{position:absolute;inset:0 auto 0 0;background:var(--peach);border-radius:999px;transition:width .5s ease}
+.pbar em{position:absolute;top:0;bottom:0;background:rgba(255,255,255,.22);border-left:2px solid var(--hero-ink)}
+.split{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--hero-muted)}
+.split b{color:var(--hero-ink);font-weight:600}
+
+.tip{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--protein);border-radius:14px;padding:10px 12px;font-size:14px}
+.note{background:var(--surface);border:1px dashed var(--warn);border-radius:14px;padding:10px 12px;font-size:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:4px 14px}
+.card.pad{padding:14px;display:flex;flex-direction:column;gap:10px}
+.card h2,.water h2{font-family:var(--display);font-size:17px;font-weight:700;margin:0}
+.card p{margin:0;font-size:14px;color:var(--muted)}
+.meal-h{display:flex;align-items:center;gap:8px;padding:10px 0}
+.meal-h h2{flex:1}
+.sum{font-size:13px;color:var(--muted)}
+.add{width:36px;height:36px;border-radius:50%;border:0;background:var(--accent);color:#fff;font-size:22px;line-height:1;display:grid;place-items:center;flex:none}
+.entry{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:10px 0}
+.entry .d{flex:1;font-size:14px;overflow-wrap:anywhere}
+.entry .n{text-align:right;font-size:13px;white-space:nowrap}
+.entry .n b{display:block;font-size:14px}
+.entry .n span{color:var(--protein);font-weight:600}
+.conf{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;background:var(--accent);vertical-align:middle}
+.conf.middel{background:var(--warn)} .conf.laag{background:var(--protein)}
+.water{flex-direction:row!important;align-items:center;flex-wrap:wrap}
+.water h2{flex:1}
+.glasses{display:flex;gap:5px;flex-wrap:wrap}
+.glass{width:26px;height:32px;border-radius:4px 4px 9px 9px;border:2px solid var(--accent);background:none;padding:0}
+.glass.on{background:var(--accent)}
+
+h1.vh{font-family:var(--display);font-size:24px;margin:0;text-wrap:balance}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;display:flex;flex-direction:column;min-width:0}
+.stat b{font-family:var(--display);font-size:19px}
+.stat span{font-size:12px;color:var(--muted)}
+.cols{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;height:150px;align-items:end;margin-top:14px}
+.col{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
+.col .band{position:absolute;left:0;right:0;background:var(--line);border-radius:3px}
+.col .bar{position:relative;width:62%;border-radius:6px 6px 2px 2px;min-height:2px}
+.col .v{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted);padding-bottom:2px;white-space:nowrap}
+.xl{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;font-size:11px;color:var(--muted);text-align:center;text-transform:capitalize}
+.xl .cur{color:var(--ink);font-weight:700}
+.legend{font-size:12px;color:var(--muted)}
+.row{display:flex;gap:8px;align-items:flex-end}
+.row.wrap{flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);flex:1;min-width:0}
+.field input,.field select,.field textarea{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 10px;font-size:16px;color:var(--ink);width:100%;min-width:0;height:42px}
+.field textarea{height:96px;resize:vertical;font-size:13px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{border:0;border-radius:12px;padding:11px 16px;font-weight:700;background:var(--accent);color:#fff;min-height:42px}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--ink)}
+.btn.danger{background:none;border:1px solid var(--protein);color:var(--protein)}
+.list-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}
+.list-row:first-child{border-top:0}
+.list-row span{flex:1;overflow-wrap:anywhere}
+.x{border:0;background:none;color:var(--muted);font-size:20px;padding:4px 8px;flex:none}
+.spark{width:100%;height:120px;display:block}
+ol.steps{margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:4px}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:5;padding-bottom:env(safe-area-inset-bottom)}
+.tabs div{display:flex;width:100%;max-width:480px}
+.tabs a{flex:1;text-align:center;padding:13px 4px 14px;text-decoration:none;color:var(--muted);font-weight:600;font-size:14px;border-top:3px solid transparent;margin-top:-1px}
+.tabs a.on{color:var(--accent);border-top-color:var(--accent)}
+
+.sheet{position:fixed;inset:0;z-index:10;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.sheet[hidden]{display:none}
+.sheet-in{max-width:480px;margin:0 auto;padding:0 calc(16px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));display:flex;flex-direction:column;gap:14px}
+.sheet-h{position:sticky;top:0;z-index:2;background:var(--bg);display:flex;align-items:center;gap:8px;padding:calc(12px + env(safe-area-inset-top)) 0 10px}
+.sheet-h h2{font-family:var(--display);font-size:20px;margin:0;flex:1}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:14px;font-weight:600}
+.seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.search input{height:46px;background:var(--surface)}
+.results{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:0 12px}
+.results:empty{display:none}
+.results h3{font-size:12px;font-weight:600;color:var(--muted);margin:10px 0 2px;text-transform:uppercase;letter-spacing:.04em}
+.res{display:flex;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:10px 0;gap:10px;align-items:center}
+.results .res:first-child,.results h3+.res{border-top:0}
+.res .rn{flex:1;font-size:15px;overflow-wrap:anywhere}
+.res small{display:block;color:var(--muted);font-size:12px}
+.res .plus{color:var(--accent);font-size:22px;font-weight:700;flex:none}
+.empty{padding:12px 0;font-size:14px;color:var(--muted)}
+.irow{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.irow-h{display:flex;align-items:center;gap:6px}
+.irow-h b{flex:1;font-size:15px;overflow-wrap:anywhere}
+.quick{display:flex;gap:4px}
+.quick button{border:1px solid var(--line);background:var(--bg);border-radius:10px;height:42px;min-width:42px;font-weight:600}
+.calc{font-size:13px;color:var(--muted)}
+.calc b{color:var(--ink)}
+.star{border:1px solid var(--line);background:none;border-radius:10px;height:34px;width:34px;flex:none;font-size:16px;color:var(--muted);padding:0}
+.star.on{color:var(--warn);border-color:var(--warn)}
+.total{font-weight:700;text-align:right;font-size:15px}
+#rows:empty,.total:empty{display:none}
+.toast{position:fixed;left:16px;right:16px;bottom:calc(76px + env(safe-area-inset-bottom));margin:0 auto;max-width:448px;background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:12px;font-size:14px;z-index:20}
+.toast[hidden]{display:none}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top" id="top">
+    <button class="icon-btn" data-act="prev" aria-label="Vorige dag">‹</button>
+    <div class="date"><b id="dlabel"></b><small id="dsub"></small></div>
+    <button class="icon-btn" id="next" data-act="next" aria-label="Volgende dag">›</button>
+  </header>
+  <main id="view"></main>
+</div>
+<nav class="tabs" aria-label="Schermen"><div>
+  <a href="#dag" id="tab-dag">Dag</a>
+  <a href="#week" id="tab-week">Week</a>
+  <a href="#gewicht" id="tab-gewicht">Gewicht</a>
+  <a href="#meer" id="tab-meer">Meer</a>
+</div></nav>
+<div class="sheet" id="sheet" hidden><div class="sheet-in" id="sheet-in" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function(){
+"use strict";
+/* naam | kcal per 100 | eiwit per 100 | standaardportie | portielabel | eenheid (g of ml) */
+var FOOD_RAW=`Brood, bruin of volkoren|240|10|35|1 snede
+Brood, wit|255|8.5|35|1 snede
+Pistolet, wit|270|9|55|1 stuk
+Pistolet, bruin|260|10|60|1 stuk
+Stokbrood|270|9|60|1 stuk van 12 cm
+Turks brood|270|9|100|1 stuk
+Sandwich (zacht broodje)|310|9|40|1 stuk
+Croissant|420|8|60|1 stuk
+Koffiekoek of chocoladebroodje|420|7|70|1 stuk
+Wrap of tortilla (tarwe)|300|8|60|1 stuk
+Beschuit|390|12|10|1 stuk
+Knäckebröd|340|10|12|1 stuk
+Rijstwafel|385|8|8|1 stuk
+Havermout|370|13|50|1 portie
+Muesli, ongezoet|365|10|50|1 portie
+Granola of krokante muesli|450|9|50|1 portie
+Cornflakes|375|7|30|1 portie
+Gepofte tarwe of spelt|363|13|15|1 portie
+Rijst, gekookt|130|2.7|180|1 portie
+Volkorenrijst, gekookt|125|2.8|180|1 portie
+Pasta, gekookt|150|5.5|220|1 portie
+Volkorenpasta, gekookt|145|6|220|1 portie
+Couscous, bereid|115|4|180|1 portie
+Quinoa, gekookt|120|4.4|180|1 portie
+Bulgur, gekookt|110|3.5|180|1 portie
+Noedels, gekookt|140|4.5|200|1 portie
+Aardappelen, gekookt|80|2|200|3 à 4 stuks
+Aardappelpuree|105|2|250|1 portie
+Frieten (frituur)|300|3.5|250|1 klein pak
+Ovenfrieten|200|3|200|1 portie
+Aardappelkroketten|215|3|150|6 stuks
+Zoete aardappel, gekookt|85|1.5|200|1 portie
+Pizza margherita|240|10|350|1 pizza
+Pannenkoek|200|6|70|1 stuk
+Luikse wafel|440|6|90|1 stuk
+Pindakaas|620|25|15|1 eetlepel
+Choco of hazelnootpasta|540|6|15|1 eetlepel
+Speculoospasta|575|3|15|1 eetlepel
+Confituur|250|0.4|15|1 eetlepel
+Honing|320|0.3|10|1 theelepel
+Hummus|270|7|30|1 ruime eetlepel
+Boter|740|0.6|8|voor 1 snede
+Minarine|360|0.2|8|voor 1 snede
+Melk, halfvol|47|3.4|200|1 glas|ml
+Melk, vol|64|3.3|200|1 glas|ml
+Melk, mager|35|3.5|200|1 glas|ml
+Sojadrink, ongezoet|33|3.3|250|1 glas|ml
+Haverdrink|45|1|250|1 glas|ml
+Amandeldrink, ongezoet|14|0.5|250|1 glas|ml
+Yoghurt natuur, halfvol|55|4.5|150|1 potje
+Yoghurt natuur, vol|65|3.8|150|1 potje
+Griekse yoghurt (10% vet)|125|5.5|150|1 schaaltje
+Griekse yoghurt 0%|57|10|150|1 schaaltje
+Skyr natuur|62|11|150|1 schaaltje
+Platte kaas, mager|50|8.5|150|1 schaaltje
+Platte kaas, halfvol|80|8|150|1 schaaltje
+Kwark, vol|125|8|150|1 schaaltje
+Cottage cheese|95|12|100|½ potje
+Fruityoghurt|90|3.5|125|1 potje
+Vanillepudding|110|3|125|1 potje
+Sojayoghurt natuur|45|4|150|1 schaaltje
+Kaas, jong (Gouda)|365|23|30|1 snede
+Kaas, oud of belegen|400|26|30|1 snede
+Kaas, light|270|29|30|1 snede
+Mozzarella|250|18|125|1 bol
+Burrata|240|12|125|1 bol
+Feta|265|15|50|¼ blok
+Halloumi|320|22|75|3 plakjes
+Geitenkaas, zacht|270|18|40|1 plak
+Parmezaan, geraspt|400|35|10|1 eetlepel
+Geraspte kaas (emmental)|380|28|25|1 handje
+Brie of camembert|330|20|30|1 stuk
+Smeerkaas|240|10|20|voor 1 snede
+Roomkaas|250|5.5|20|voor 1 snede
+Ei, gekookt|145|12.5|52|1 stuk
+Ei, gebakken|195|13.5|55|1 stuk
+Roerei met wat boter|170|11.5|120|2 eieren
+Omelet|180|12|120|2 eieren
+Kookroom|200|2.5|15|1 eetlepel|ml
+Slagroom|340|2|15|1 eetlepel
+Kipfilet, gebakken|160|30|120|1 stuk
+Kipfilet (beleg)|105|20|15|1 sneetje
+Kippenbout, gebraden|215|25|150|1 stuk
+Kalkoenfilet, gebakken|150|29|120|1 stuk
+Gehakt gemengd, gebakken|260|19|125|1 portie
+Rundergehakt mager, gebakken|210|24|125|1 portie
+Biefstuk|150|27|150|1 stuk
+Hamburger (enkel vlees)|250|18|100|1 stuk
+Varkenshaasje|145|26|125|1 portie
+Kotelet of varkenslapje|200|27|125|1 stuk
+Braadworst|280|15|125|1 stuk
+Spek, gebakken|450|30|20|2 reepjes
+Hesp (gekookte ham)|115|19|20|1 snede
+Rauwe ham|230|27|15|1 snede
+Salami|400|20|15|3 schijfjes
+Préparé|240|15|30|voor 1 snede
+Kip curry (slaatje)|260|11|30|voor 1 snede
+Zalm, gebakken|210|22|120|1 moot
+Gerookte zalm|180|23|50|2 sneetjes
+Kabeljauw, gebakken|105|23|130|1 stuk
+Tonijn in blik, op water|110|25|110|1 blikje uitgelekt
+Tonijn in blik, op olie|190|26|110|1 blikje uitgelekt
+Makreel, gerookt|300|20|80|½ filet
+Garnalen|85|18|100|1 portie
+Scampi, gebakken|110|20|120|1 portie
+Fishsticks|200|12|90|3 stuks
+Mosselen, gekookt|100|15|200|1 portie zonder schelp
+Sardines in blik|210|24|90|1 blikje
+Tofu natuur|125|13|100|½ blok
+Tempeh|165|19|100|½ blok
+Vegetarische burger|200|15|85|1 stuk
+Vegetarisch gehakt|170|18|100|1 portie
+Falafel|250|9|90|4 balletjes
+Seitan|125|24|100|1 portie
+Kikkererwten uit blik|125|7|130|½ blik uitgelekt
+Linzen, gekookt|115|9|150|1 portie
+Kidneybonen uit blik|105|8|130|½ blik uitgelekt
+Witte bonen in tomatensaus|90|5|200|½ blik
+Edamame|125|11.5|100|1 portie
+Sla of gemengde salade|15|1.3|50|1 portie
+Tomaat|19|0.9|120|1 stuk
+Kerstomaten|20|1|100|8 stuks
+Komkommer|13|0.7|100|⅓ stuk
+Wortel|35|0.8|80|1 stuk
+Paprika|28|1|150|1 stuk
+Broccoli, gekookt|30|3|200|1 portie
+Bloemkool, gekookt|22|2|200|1 portie
+Spinazie|25|2.8|200|1 portie
+Courgette|18|1.5|200|1 portie
+Champignons|20|2.5|100|1 portie
+Prinsessenbonen|30|2|200|1 portie
+Erwten|75|5.5|150|1 portie
+Witloof|17|1|150|1 stronk
+Spruitjes|40|3.5|200|1 portie
+Prei|28|1.5|150|1 portie
+Ui|35|1|80|1 stuk
+Maïs uit blik|85|3|70|½ klein blik
+Rode biet, gekookt|45|1.5|150|1 portie
+Avocado|160|2|75|½ stuk
+Olijven|150|1|30|10 stuks
+Gewokte groenten met wat olie|60|2|250|1 portie
+Groentesoep|35|1|250|1 kom|ml
+Tomatensoep|40|1|250|1 kom|ml
+Soep met balletjes|50|2.5|250|1 kom|ml
+Broccoli-spinaziesoep met kikkererwten|34|1.8|330|1 kom|ml
+Appel|52|0.3|150|1 stuk
+Banaan|90|1.1|120|1 stuk
+Mandarijn|45|0.7|75|1 stuk
+Sinaasappel|47|0.9|160|1 stuk
+Peer|55|0.4|160|1 stuk
+Druiven|70|0.6|125|1 trosje
+Aardbeien|32|0.7|150|1 schaaltje
+Blauwe bessen|55|0.7|100|1 schaaltje
+Frambozen|40|1.2|100|1 schaaltje
+Kiwi|60|1|75|1 stuk
+Mango|62|0.7|150|½ stuk
+Ananas|52|0.5|150|2 schijven
+Meloen|35|0.7|200|1 part
+Perzik of nectarine|42|0.9|130|1 stuk
+Rozijnen|300|3|25|1 handje
+Dadel (Medjool)|285|2|24|1 stuk
+Gedroogde abrikozen|240|3.5|30|4 stuks
+Notenmix, ongezouten|620|20|30|1 handje
+Amandelen|600|21|30|1 handje
+Walnoten|690|15|30|1 handje
+Cashewnoten|590|18|30|1 handje
+Pinda's|600|26|30|1 handje
+Pompoen- of zonnebloempitten|580|25|15|1 eetlepel
+Chiazaad of lijnzaad|490|18|10|1 eetlepel
+Chips|540|6|40|1 schaaltje
+Tortillachips|490|7|40|1 schaaltje
+Nic Nac's|490|7.5|30|1 hand
+Zoute stokjes of pretzels|385|11|30|1 handje
+Popcorn, zout|450|9|25|1 schaaltje
+Chocolade, puur|550|7|20|2 blokjes
+Chocolade, melk|540|7.5|20|2 blokjes
+Praline|520|6|13|1 stuk
+Droog koekje (petit beurre)|450|7|8|1 stuk
+Speculoos|480|6|8|1 stuk
+Chocoladekoek|480|6|20|1 stuk
+Granenreep|420|7|25|1 reep
+Eiwitreep|370|33|55|1 reep
+Cake|400|6|50|1 plak
+Fruittaart|250|3.5|120|1 stuk
+Rijsttaart|220|4.5|120|1 stuk
+Brownie|450|5.5|60|1 stuk
+Roomijs|200|3.5|50|1 bol
+Snoep of gummies|340|6|25|1 handje
+Peperkoek|320|3|25|1 snede
+Olijfolie|900|0|12|1 eetlepel
+Mayonaise|700|1|15|1 eetlepel
+Ketchup|100|1.5|15|1 eetlepel
+Mosterd|90|6|5|1 theelepel
+Vinaigrette of dressing|350|0.5|15|1 eetlepel
+Yoghurtdressing|150|1.5|15|1 eetlepel
+Pesto|480|5|15|1 eetlepel
+Tomatensaus voor pasta|60|1.5|125|1 portie
+Bolognesesaus|110|7|150|1 portie
+Kaassaus|150|6|75|1 portie
+Witte saus (bechamel)|130|4|75|1 portie
+Curry- of kokossaus|130|2|100|1 portie
+Sojasaus|60|8|10|1 eetlepel|ml
+Guacamole|160|2|30|1 ruime eetlepel
+Tzatziki|110|4|30|1 ruime eetlepel
+Koffie, zwart|1|0.1|125|1 tas|ml
+Koffie met een scheutje melk|12|0.8|125|1 tas|ml
+Cappuccino|35|2|180|1 tas|ml
+Latte macchiato|50|3|250|1 glas|ml
+Thee|0|0|200|1 tas|ml
+Fruitsap|45|0.7|200|1 glas|ml
+Cola of frisdrank|42|0|250|1 glas|ml
+Frisdrank zero|0.5|0|250|1 glas|ml
+Smoothie van fruit|55|0.7|250|1 glas|ml
+Chocomelk|70|3.4|200|1 glas|ml
+Pils|42|0.4|250|1 pintje|ml
+Speciaalbier (tripel, blond)|68|0.5|330|1 flesje|ml
+Alcoholvrij bier|25|0.3|250|1 glas|ml
+Wijn, rood of wit|82|0.1|100|1 glas|ml
+Cava of schuimwijn|75|0.2|100|1 glas|ml
+Gin-tonic|70|0|250|1 glas|ml
+Sportdrank|25|0|500|1 flesje|ml
+Bulk Daily Whey vanille|340|60|30|1 schep
+Whey-eiwitpoeder (algemeen)|380|75|30|1 schep
+Eiwitshake, kant-en-klaar|60|8|330|1 flesje|ml
+Lasagne|150|8|400|1 portie
+Spaghetti bolognese|130|6.5|450|1 bord
+Macaroni met hesp en kaas|160|8|400|1 bord
+Stoofvlees|150|14|250|1 portie
+Vol-au-vent|130|11|250|1 portie
+Witloof in hesp met kaassaus|100|6.5|350|3 rolletjes
+Stoemp|100|2.5|300|1 portie
+Hutsepot of stamppot|90|3|350|1 portie
+Wok met kip en groenten (zonder rijst)|100|9|350|1 portie
+Curry met rijst|140|6|450|1 bord
+Chili con of sin carne|100|6.5|350|1 portie
+Sushi|150|5|200|8 stuks
+Dürüm of kebab|215|11|350|1 stuk
+Broodje kaas en hesp (smos)|230|10|250|1 stuk
+Croque monsieur|270|13|130|1 stuk
+Hamburger met broodje|250|12|220|1 stuk
+Quiche|250|9|150|1 punt
+Poké bowl|130|7|450|1 kom
+Caesarsalade met kip|130|9|350|1 portie
+Griekse salade|110|3.5|300|1 portie
+Pastasalade|170|5|300|1 portie
+Loempia|220|6|100|1 stuk
+Bitterballen|270|8|100|5 stuks
+Curryworst of frikandel|250|12|85|1 stuk`;
+function plain(s){return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");}
+var FOOD=FOOD_RAW.split("\n").map(function(l){var p=l.split("|");return {n:p[0],k:+p[1],e:+p[2],g:+p[3],l:p[4],u:p[5]||"g",s:plain(p[0])};});
+
+var TYPES={rust:"Rustdag / geen fiets",fiets:"Werkdag met fiets",workout:"Workout, geen fiets",beide:"Fiets + workout"};
+var MOMENTS=[["ontbijt","Ontbijt"],["lunch","Lunch"],["avond","Avondmaal"],["snack","Snacks"],["drank","Drank"]];
+var KEY="voedingstracker.v1";
+var S=norm(read()), mem=false;
+var cur=iso(new Date()), sheet=null;
+
+function read(){try{var r=localStorage.getItem(KEY);return r?JSON.parse(r):{};}catch(e){mem=true;return {};}}
+function norm(o){
+  o=o||{};var i=o.inst||{},k=i.kcal||{};
+  return {days:o.days||{},favs:o.favs||[],metingen:o.metingen||[],
+    inst:{gewicht:+i.gewicht||75,marge:i.marge==null?150:+i.marge,pLo:+i.pLo||1.8,pHi:+i.pHi||2,
+      kcal:{rust:+k.rust||2300,fiets:+k.fiets||2450,workout:+k.workout||2450,beide:+k.beide||2600}}};
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast("Bewaren op dit toestel lukt niet. Maak ruimte vrij of zet privénavigatie uit.");}}
+
+function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function parse(s){var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2]);}
+function shift(s,n){var d=parse(s);d.setDate(d.getDate()+n);return iso(d);}
+function nf(n){return Math.round(n).toLocaleString("nl-BE");}
+function n1(n){return (Math.round(n*10)/10).toLocaleString("nl-BE");}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function r5(n){return Math.round(n/5)*5;}
+function num(v){var n=parseFloat(String(v).replace(",","."));return isFinite(n)?n:0;}
+function $(id){return document.getElementById(id);}
+
+function defType(d){var w=parse(d).getDay();return (w===0||w===6)?"rust":"fiets";}
+function getDay(d){var x=S.days[d];return {type:(x&&TYPES[x.type])?x.type:defType(d),water:(x&&x.water)||0,entries:(x&&x.entries)?x.entries.slice():[]};}
+function setDay(d,day){S.days[d]=day;save();render();}
+function goals(d){
+  var day=getDay(d),i=S.inst,lo=i.kcal[day.type];
+  return {kLo:lo,kHi:lo+i.marge,pLo:r5(i.gewicht*i.pLo),pHi:Math.max(r5(i.gewicht*i.pLo),r5(i.gewicht*i.pHi)),pMin:Math.round(i.gewicht*1.6)};
+}
+function totals(d){
+  var t={kcal:0,eiwit:0,per:{}};
+  getDay(d).entries.forEach(function(e){t.kcal+=e.kcal||0;t.eiwit+=e.eiwit||0;t.per[e.moment]=(t.per[e.moment]||0)+(e.eiwit||0);});
+  return t;
+}
+function dayDone(d){return d<iso(new Date())||getDay(d).entries.some(function(e){return e.moment==="avond";});}
+function toast(msg){var t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(function(){t.hidden=true;},4000);}
+
+/* ---------- views ---------- */
+function view(){var h=location.hash.replace("#","");return (h==="week"||h==="gewicht"||h==="meer")?h:"dag";}
+function render(){
+  var v=view(),today=iso(new Date());
+  ["dag","week","gewicht","meer"].forEach(function(n){$("tab-"+n).classList.toggle("on",n===v);});
+  $("top").hidden=(v==="gewicht"||v==="meer");
+  var d=parse(cur);
+  $("dlabel").textContent=cur===today?"Vandaag":cur===shift(today,-1)?"Gisteren":d.toLocaleDateString("nl-BE",{weekday:"long"});
+  $("dsub").textContent=d.toLocaleDateString("nl-BE",{weekday:"short",day:"numeric",month:"long"});
+  $("next").disabled=cur>=today;
+  var html=mem?'<div class="note">Dit toestel laat nu geen opslag toe. Wat je invult, verdwijnt als je de app sluit.</div>':"";
+  html+= v==="week"?viewWeek():v==="gewicht"?viewGewicht():v==="meer"?viewMeer():viewDag();
+  $("view").innerHTML=html;
+}
+
+function viewDag(){
+  var day=getDay(cur),g=goals(cur),t=totals(cur),done=dayDone(cur);
+  var C=2*Math.PI*52,frac=Math.min(1,t.kcal/g.kLo);
+  var over=t.kcal>g.kHi,inRange=t.kcal>=g.kLo&&!over;
+  var big,sub,pill,pc="";
+  if(over){big=nf(t.kcal-g.kHi);sub="kcal boven doel";pill="Overschot";pc=" over";}
+  else if(inRange){big=nf(t.kcal);sub="kcal · op doel";pill="Op doel";pc=" ok";}
+  else{big=nf(g.kLo-t.kcal);sub=done?"kcal tekort":"kcal te gaan";pill=done?"Tekort":"Dag loopt nog";}
+  var pScale=g.pHi*1.12,pW=Math.min(100,t.eiwit/pScale*100);
+  var pst,pok="";
+  if(t.eiwit>=g.pLo){pst="op doel";pok=" ok";}
+  else{pst=(done?"tekort ":"nog ")+nf(g.pLo-t.eiwit)+" g"+(done&&t.eiwit<g.pMin?" (onder minimum)":"");}
+  var opts=Object.keys(TYPES).map(function(k){return '<option value="'+k+'"'+(k===day.type?" selected":"")+'>'+esc(TYPES[k])+'</option>';}).join("");
+  var split=MOMENTS.filter(function(m){return t.per[m[0]];}).map(function(m){return '<span>'+m[1]+' <b>'+nf(t.per[m[0]])+' g</b></span>';}).join("");
+  var h='<section class="hero">'
+   +'<div class="hero-top"><select class="chip-select" id="daytype" aria-label="Type dag">'+opts+'</select><span class="pill'+pc+'">'+pill+'</span></div>'
+   +'<div class="ring-row"><div class="side"><b>'+nf(t.kcal)+'</b><span>kcal gegeten</span></div>'
+   +'<div class="ring'+(over?" over":"")+'"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="tr" cx="60" cy="60" r="52"/><circle class="pr" cx="60" cy="60" r="52" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+(C*(1-frac)).toFixed(1)+'"/></svg>'
+   +'<div class="ring-c"><b>'+big+'</b><span>'+sub+'</span></div></div>'
+   +'<div class="side"><b>'+nf(g.kLo)+'–'+nf(g.kHi)+'</b><span>doel kcal</span></div></div>'
+   +'<div class="prot"><div class="prot-h"><span>Eiwit</span><b>'+nf(t.eiwit)+' g</b><span>/ '+g.pLo+'–'+g.pHi+' g</span><span class="st'+pok+'">'+pst+'</span></div>'
+   +'<div class="pbar"><i style="width:'+pW.toFixed(1)+'%"></i><em style="left:'+(g.pLo/pScale*100).toFixed(1)+'%;width:'+((g.pHi-g.pLo)/pScale*100).toFixed(1)+'%"></em></div>'
+   +(split?'<div class="split">'+split+'</div>':'')+'</div></section>';
+  var rest=g.pLo-t.eiwit;
+  if(rest>0&&!done&&t.kcal>0){
+    var tip=rest<=20?"200 g skyr of platte kaas is genoeg.":rest<=45?"Een avondmaal met vis, kip of tofu dekt dat.":"Kies een avondmaal met ±40 g eiwit en neem daarna skyr of een shake.";
+    h+='<div class="tip"><b>Nog '+nf(rest)+' g eiwit.</b> '+tip+'</div>';
+  }
+  MOMENTS.forEach(function(m){
+    var es=day.entries.filter(function(e){return e.moment===m[0];});
+    var k=0,p=0;es.forEach(function(e){k+=e.kcal||0;p+=e.eiwit||0;});
+    h+='<section class="card"><div class="meal-h"><h2>'+m[1]+'</h2><span class="sum">'+(es.length?nf(k)+' kcal · '+nf(p)+' g':'nog niets')+'</span>'
+     +'<button class="add" data-act="add" data-m="'+m[0]+'" aria-label="'+m[1]+' toevoegen">+</button></div>';
+    es.forEach(function(e){
+      h+='<button class="entry" data-act="edit" data-id="'+esc(e.id)+'"><span class="d"><i class="conf '+esc(e.zeker||"middel")+'" title="Zekerheid: '+esc(e.zeker||"middel")+'"></i>'+esc(e.desc)+'</span>'
+       +'<span class="n"><b>'+nf(e.kcal||0)+' kcal</b><span>'+nf(e.eiwit||0)+' g eiwit</span></span></button>';
+    });
+    h+='</section>';
+  });
+  var gl="";for(var i=1;i<=8;i++){gl+='<button class="glass'+(i<=day.water?" on":"")+'" data-act="water" data-n="'+i+'" aria-label="'+i+' glazen water"></button>';}
+  h+='<section class="card pad water"><h2>Water</h2><span class="sum">'+day.water+' glazen</span><div class="glasses">'+gl+'</div></section>';
+  return h;
+}
+
+function chart(title,vals,los,his,labels,color,unit){
+  var max=Math.max.apply(null,vals.concat(his))*1.15||1;
+  var cols=vals.map(function(v,i){
+    return '<div class="col"><div class="band" style="bottom:'+(los[i]/max*100).toFixed(1)+'%;height:'+Math.max(1.5,(his[i]-los[i])/max*100).toFixed(1)+'%"></div>'
+     +'<div class="bar" style="height:'+(v/max*100).toFixed(1)+'%;background:'+color+';opacity:'+(v?1:.25)+'">'+(v?'<span class="v">'+nf(v)+'</span>':'')+'</div></div>';
+  }).join("");
+  var xl=labels.map(function(l,i){return '<span'+(i===6?' class="cur"':'')+'>'+l+'</span>';}).join("");
+  return '<section class="card pad"><h2>'+title+'</h2><div class="cols">'+cols+'</div><div class="xl">'+xl+'</div><div class="legend">Grijze band = doel per dag ('+unit+')</div></section>';
+}
+function viewWeek(){
+  var ds=[];for(var i=6;i>=0;i--)ds.push(shift(cur,-i));
+  var k=[],p=[],kl=[],kh=[],pl=[],ph=[],lab=[],n=0,sk=0,sp=0,hit=0;
+  ds.forEach(function(d){
+    var t=totals(d),g=goals(d);
+    k.push(t.kcal);p.push(t.eiwit);kl.push(g.kLo);kh.push(g.kHi);pl.push(g.pLo);ph.push(g.pHi);
+    lab.push(parse(d).toLocaleDateString("nl-BE",{weekday:"short"}).replace(".",""));
+    if(t.kcal>0){n++;sk+=t.kcal;sp+=t.eiwit;if(t.eiwit>=g.pLo)hit++;}
+  });
+  var h='<h1 class="vh">Week tot '+parse(cur).toLocaleDateString("nl-BE",{day:"numeric",month:"long"})+'</h1>';
+  h+='<div class="stats"><div class="stat"><b>'+(n?nf(sk/n):"–")+'</b><span>kcal gemiddeld</span></div><div class="stat"><b>'+(n?nf(sp/n)+" g":"–")+'</b><span>eiwit gemiddeld</span></div><div class="stat"><b>'+hit+' / '+n+'</b><span>dagen eiwitdoel</span></div></div>';
+  h+=chart("Calorieën",k,kl,kh,lab,"var(--accent)","kcal");
+  h+=chart("Eiwit",p,pl,ph,lab,"var(--protein)","gram");
+  if(!n)h+='<div class="tip">Deze week is nog niets gelogd.</div>';
+  return h;
+}
+function sortedM(){return S.metingen.slice().sort(function(a,b){return a.datum<b.datum?-1:1;});}
+function viewGewicht(){
+  var ms=sortedM(),g=goals(cur);
+  var h='<h1 class="vh">Gewicht</h1>';
+  h+='<div class="stats"><div class="stat"><b>'+(ms.length?n1(ms[ms.length-1].gewicht)+" kg":"–")+'</b><span>laatste meting</span></div><div class="stat"><b>'+ms.length+'</b><span>metingen</span></div><div class="stat"><b>'+g.pLo+'–'+g.pHi+' g</b><span>eiwitdoel per dag</span></div></div>';
+  if(ms.length>1){
+    var vs=ms.map(function(m){return m.gewicht;}),lo=Math.min.apply(null,vs)-.5,hi=Math.max.apply(null,vs)+.5;
+    var W=320,H=120,x=function(i){return 10+i*(W-20)/(ms.length-1);},y=function(v){return H-12-(v-lo)/(hi-lo)*(H-24);};
+    var pts=ms.map(function(m,i){return x(i).toFixed(1)+","+y(m.gewicht).toFixed(1);}).join(" ");
+    h+='<section class="card pad"><svg class="spark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="Gewichtsverloop">'
+     +'<polyline points="'+pts+'" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>'
+     +'<div class="legend">'+n1(vs[0])+' kg op '+parse(ms[0].datum).toLocaleDateString("nl-BE",{day:"numeric",month:"short"})+' → '+n1(vs[vs.length-1])+' kg op '+parse(ms[ms.length-1].datum).toLocaleDateString("nl-BE",{day:"numeric",month:"short"})+'</div></section>';
+  }
+  h+='<section class="card pad"><form class="row" id="wform"><label class="field">Datum<input type="date" id="w-date" value="'+iso(new Date())+'" max="'+iso(new Date())+'"></label><label class="field">Gewicht (kg)<input type="text" inputmode="decimal" id="w-kg" placeholder="72,0"></label><button class="btn" type="submit">Bewaar</button></form></section>';
+  if(ms.length){
+    h+='<section class="card">';
+    ms.slice().reverse().forEach(function(m){h+='<div class="list-row"><span>'+parse(m.datum).toLocaleDateString("nl-BE",{day:"numeric",month:"long",year:"numeric"})+'</span><b>'+n1(m.gewicht)+' kg</b><button class="x" data-act="delw" data-d="'+esc(m.datum)+'" aria-label="Meting verwijderen">×</button></div>';});
+    h+='</section>';
+  }
+  h+='<div class="tip">Je eiwitdoel volgt je laatste gewicht. De factor pas je aan onder Meer.</div>';
+  return h;
+}
+function standalone(){return window.navigator.standalone===true||(window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches);}
+function viewMeer(){
+  var i=S.inst,h='<h1 class="vh">Meer</h1>';
+  if(!standalone()){
+    h+='<section class="card pad"><h2>Zet de app op je beginscherm</h2><ol class="steps"><li>Open deze pagina in Safari.</li><li>Tik onderaan op de deelknop (vierkant met pijl omhoog).</li><li>Kies Zet op beginscherm en tik op Voeg toe.</li></ol><p>Daarna opent de app schermvullend en werkt hij ook zonder internet.</p></section>';
+  }
+  function inp(label,key,val,step){return '<label class="field">'+label+'<input type="text" inputmode="decimal" id="inst-'+key.replace(".","-")+'" data-inst="'+key+'" value="'+esc(String(val).replace(".",","))+'"></label>';}
+  h+='<section class="card pad"><h2>Caloriedoel per type dag</h2><div class="grid2">'
+   +inp("Rustdag (kcal)","kcal.rust",i.kcal.rust)+inp("Werkdag met fiets","kcal.fiets",i.kcal.fiets)
+   +inp("Workout, geen fiets","kcal.workout",i.kcal.workout)+inp("Fiets + workout","kcal.beide",i.kcal.beide)
+   +inp("Marge erboven (kcal)","marge",i.marge)+'</div><p>Het doel loopt van dit getal tot dit getal plus de marge.</p></section>';
+  h+='<section class="card pad"><h2>Eiwitdoel</h2><div class="grid2">'+inp("Gewicht (kg)","gewicht",i.gewicht)+'<span></span>'+inp("Gram per kg, van","pLo",i.pLo)+inp("Gram per kg, tot","pHi",i.pHi)+'</div><p>Nu: '+goals(cur).pLo+'–'+goals(cur).pHi+' g per dag.</p></section>';
+  h+='<section class="card pad"><h2>Back-up</h2><p>Je gegevens staan alleen op dit toestel. Bewaar af en toe een back-up, zeker voor je de app verwijdert.</p>'
+   +'<div class="row wrap"><button class="btn" data-act="export">Bewaar back-up</button><button class="btn ghost" data-act="copy">Kopieer als tekst</button></div>'
+   +'<label class="field">Back-up terugzetten uit een bestand<input type="file" id="imp-file" accept=".json,application/json,text/plain"></label>'
+   +'<label class="field">Of plak hier de tekst van een back-up<textarea id="imp-text" placeholder="{ &quot;app&quot;: &quot;voedingstracker&quot;, … }"></textarea></label>'
+   +'<button class="btn ghost" data-act="import-text">Zet geplakte back-up terug</button>'
+   +'<p>Terugzetten voegt samen: dagen uit de back-up vervangen dezelfde dagen in de app, de rest blijft staan.</p></section>';
+  h+='<section class="card pad"><h2>Favorieten</h2>';
+  if(S.favs.length){S.favs.forEach(function(f,ix){h+='<div class="list-row"><span>'+esc(f.desc)+'<br><small class="sum">'+nf(f.kcal)+' kcal · '+nf(f.eiwit)+' g eiwit</small></span><button class="x" data-act="delfav" data-i="'+ix+'" aria-label="Favoriet verwijderen">×</button></div>';});}
+  else h+='<p>Nog geen favorieten. Tik bij het toevoegen op de ster om een ingave te bewaren.</p>';
+  h+='</section>';
+  h+='<p class="legend">Voedingswaarden zijn gemiddelden per 100 g of ml en blijven een schatting. '+FOOD.length+' producten in de lijst.</p>';
+  return h;
+}
+
+/* ---------- add / edit sheet ---------- */
+function blank(){return {t:"vrij",desc:"",kcal:"",eiwit:"",zeker:"middel",fav:false};}
+function openSheet(moment,entry){
+  sheet={moment:moment,editId:entry?entry.id:null,rows:entry?[{t:"vrij",desc:entry.desc,kcal:entry.kcal,eiwit:entry.eiwit,zeker:entry.zeker||"middel",fav:false}]:[]};
+  var s=sheet,h='<div class="sheet-h"><button class="icon-btn" data-act="close" aria-label="Sluiten">×</button><h2 id="sheet-title">'+(s.editId?"Aanpassen":"Toevoegen")+'</h2><button class="btn" data-act="save">Bewaar</button></div>';
+  h+='<div class="seg" id="seg" role="group" aria-label="Moment"></div>';
+  h+='<div id="rows" style="display:flex;flex-direction:column;gap:10px"></div><div class="total" id="total"></div>';
+  if(!s.editId){
+    h+='<label class="field search">Zoek een product of gerecht<input type="search" id="q" autocomplete="off" autocorrect="off" placeholder="bv. burrata, havermout, pils"></label>';
+    h+='<div class="results" id="results"></div>';
+  }
+  h+=s.editId?'<button class="btn danger" data-act="delentry">Verwijder deze ingave</button>':'<button class="btn ghost" data-act="addrow">Zelf invullen (kcal en eiwit)</button>';
+  $("sheet-in").innerHTML=h;
+  renderSeg();renderResults();renderRows();
+  $("sheet").hidden=false;$("sheet").scrollTop=0;
+}
+function closeSheet(){sheet=null;$("sheet").hidden=true;$("sheet-in").innerHTML="";}
+function renderSeg(){$("seg").innerHTML=MOMENTS.map(function(m){return '<button data-act="moment" data-m="'+m[0]+'" class="'+(m[0]===sheet.moment?"on":"")+'">'+m[1]+'</button>';}).join("");}
+function recent(){
+  var seen={},out=[],d=iso(new Date());
+  S.favs.forEach(function(f){seen[f.desc]=1;});
+  for(var i=0;i<21&&out.length<6;i++){
+    var es=getDay(shift(d,-i)).entries;
+    for(var j=es.length-1;j>=0&&out.length<6;j--){var e=es[j];if(!seen[e.desc]){seen[e.desc]=1;out.push({desc:e.desc,kcal:e.kcal,eiwit:e.eiwit,zeker:e.zeker});}}
+  }
+  return out;
+}
+var resList=[];
+function renderResults(){
+  var box=$("results");if(!box)return;
+  var q=plain(($("q")&&$("q").value)||"").trim(),h="";resList=[];
+  function quick(arr,title){
+    if(!arr.length)return;h+='<h3>'+title+'</h3>';
+    arr.forEach(function(f){resList.push({t:"vrij",desc:f.desc,kcal:f.kcal,eiwit:f.eiwit,zeker:f.zeker||"hoog",fav:false});
+      h+='<button class="res" data-act="pick" data-i="'+(resList.length-1)+'"><span class="rn">'+esc(f.desc)+'<small>'+nf(f.kcal)+' kcal · '+nf(f.eiwit)+' g eiwit</small></span><span class="plus">+</span></button>';});
+  }
+  if(!q){quick(S.favs,"Favorieten");quick(recent(),"Onlangs gegeten");}
+  else{
+    var tok=q.split(/\s+/);
+    quick(S.favs.filter(function(f){var s=plain(f.desc);return tok.every(function(t){return s.indexOf(t)>=0;});}),"Favorieten");
+    var hits=FOOD.map(function(f,ix){return {f:f,ix:ix};}).filter(function(o){return tok.every(function(t){return o.f.s.indexOf(t)>=0;});});
+    hits.sort(function(a,b){return (a.f.s.indexOf(tok[0])===0?0:1)-(b.f.s.indexOf(tok[0])===0?0:1)||a.f.s.localeCompare(b.f.s);});
+    if(hits.length)h+='<h3>Voedingslijst</h3>';
+    hits.slice(0,25).forEach(function(o){var f=o.f;resList.push({t:"db",f:o.ix,g:f.g});
+      h+='<button class="res" data-act="pick" data-i="'+(resList.length-1)+'"><span class="rn">'+esc(f.n)+'<small>'+esc(f.l)+' ('+f.g+' '+f.u+') · '+nf(f.k*f.g/100)+' kcal · '+n1(f.e*f.g/100)+' g eiwit</small></span><span class="plus">+</span></button>';});
+    if(!resList.length)h='<div class="empty">Niets gevonden voor deze zoekterm. Vul de waarden zelf in met de knop onderaan.</div>';
+  }
+  box.innerHTML=h;
+}
+function rowVals(r){
+  if(r.t==="db"){var f=FOOD[r.f],g=num(r.g);return {desc:f.n+" ("+String(r.g).replace(".",",")+" "+f.u+")",kcal:f.k*g/100,eiwit:f.e*g/100,zeker:"middel"};}
+  return {desc:String(r.desc).trim(),kcal:num(r.kcal),eiwit:num(r.eiwit),zeker:r.zeker};
+}
+function calcText(r){var v=rowVals(r),f=FOOD[r.f],x=num(r.g)/f.g;return (Math.abs(x-1)<.01?esc(f.l)+" · ":x>0?n1(x)+" × de portie van "+f.g+" "+f.u+" · ":"")+'<b>'+nf(v.kcal)+' kcal</b> · <b>'+n1(v.eiwit)+' g eiwit</b>';}
+function renderRows(){
+  var h="";
+  sheet.rows.forEach(function(r,i){
+    var star='<button class="star'+(r.fav?" on":"")+'" data-act="star" data-i="'+i+'" aria-label="Bewaar als favoriet" aria-pressed="'+(r.fav?"true":"false")+'">★</button>';
+    var del=sheet.editId?"":'<button class="x" data-act="delrow" data-i="'+i+'" aria-label="Rij verwijderen">×</button>';
+    if(r.t==="db"){
+      var f=FOOD[r.f];
+      h+='<div class="irow"><div class="irow-h"><b>'+esc(f.n)+'</b>'+star+del+'</div>'
+       +'<div class="row"><label class="field">Hoeveelheid ('+f.u+')<input type="text" inputmode="decimal" id="r'+i+'-g" data-i="'+i+'" data-f="g" value="'+esc(r.g)+'"></label>'
+       +'<div class="quick"><button data-act="mul" data-i="'+i+'" data-x="0.5" aria-label="Halve portie">½</button><button data-act="mul" data-i="'+i+'" data-x="1" aria-label="1 portie">1×</button><button data-act="mul" data-i="'+i+'" data-x="2" aria-label="2 porties">2×</button><button data-act="mul" data-i="'+i+'" data-x="3" aria-label="3 porties">3×</button></div></div>'
+       +'<div class="calc" id="calc-'+i+'">'+calcText(r)+'</div></div>';
+    }else{
+      h+='<div class="irow"><div class="irow-h"><label class="field">Omschrijving<input type="text" id="r'+i+'-desc" data-i="'+i+'" data-f="desc" value="'+esc(r.desc)+'"></label></div>'
+       +'<div class="row"><label class="field">kcal<input type="text" inputmode="decimal" id="r'+i+'-kcal" data-i="'+i+'" data-f="kcal" value="'+esc(r.kcal)+'"></label>'
+       +'<label class="field">Eiwit (g)<input type="text" inputmode="decimal" id="r'+i+'-eiwit" data-i="'+i+'" data-f="eiwit" value="'+esc(r.eiwit)+'"></label>'
+       +'<label class="field">Zekerheid<select id="r'+i+'-zeker" data-i="'+i+'" data-f="zeker">'+["hoog","middel","laag"].map(function(z){return '<option'+(z===r.zeker?" selected":"")+'>'+z+'</option>';}).join("")+'</select></label></div>'
+       +'<div class="irow-h"><span class="calc" style="flex:1">Tik op de ster om dit als favoriet te bewaren.</span>'+star+del+'</div></div>';
+    }
+  });
+  $("rows").innerHTML=h;renderTotal();
+}
+function renderTotal(){
+  var k=0,p=0;sheet.rows.forEach(function(r){var v=rowVals(r);k+=v.kcal;p+=v.eiwit;});
+  $("total").textContent=sheet.rows.length>1?"Totaal: "+nf(k)+" kcal · "+nf(p)+" g eiwit":"";
+}
+function saveSheet(){
+  var s=sheet,day=getDay(cur);
+  var vals=s.rows.map(function(r){var v=rowVals(r);v.fav=r.fav;return v;}).filter(function(v){return v.desc;});
+  if(!vals.length){toast("Kies eerst een product of vul een omschrijving in.");return;}
+  if(s.editId){
+    var v=vals[0];
+    day.entries=day.entries.map(function(e){return e.id===s.editId?{id:e.id,moment:s.moment,desc:v.desc,kcal:Math.round(v.kcal),eiwit:Math.round(v.eiwit),zeker:v.zeker}:e;});
+  }else{
+    vals.forEach(function(v){day.entries.push({id:uid(),moment:s.moment,desc:v.desc,kcal:Math.round(v.kcal),eiwit:Math.round(v.eiwit),zeker:v.zeker});});
+  }
+  vals.filter(function(v){return v.fav;}).forEach(function(v){
+    if(!S.favs.some(function(f){return f.desc===v.desc;}))S.favs.push({desc:v.desc,kcal:Math.round(v.kcal),eiwit:Math.round(v.eiwit)});
+  });
+  closeSheet();setDay(cur,day);
+}
+
+/* ---------- back-up ---------- */
+function backupText(){return JSON.stringify({app:"voedingstracker",v:1,bewaard:new Date().toISOString(),data:S},null,1);}
+function exportData(){
+  var txt=backupText(),name="voedingstracker-"+iso(new Date())+".json",file=null;
+  try{file=new File([txt],name,{type:"application/json"});}catch(e){}
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:"Voedingstracker back-up"}).catch(function(){});return;}
+  var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"application/json"}));a.download=name;document.body.appendChild(a);a.click();a.remove();
+}
+function importText(txt){
+  var o;try{o=JSON.parse(txt);}catch(e){toast("Dit is geen geldige back-up. Plak de volledige tekst, van { tot }.");return;}
+  var d=o&&o.data?o.data:o;
+  if(!d||typeof d!=="object"||(!d.days&&!d.favs&&!d.metingen&&!d.inst)){toast("In deze back-up staan geen gegevens van de Voedingstracker.");return;}
+  var n=norm(d),cnt=Object.keys(n.days).length;
+  Object.keys(n.days).forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(k))S.days[k]=n.days[k];});
+  n.favs.forEach(function(f){if(f&&f.desc&&!S.favs.some(function(x){return x.desc===f.desc;}))S.favs.push({desc:String(f.desc),kcal:+f.kcal||0,eiwit:+f.eiwit||0});});
+  n.metingen.forEach(function(m){if(m&&m.datum){S.metingen=S.metingen.filter(function(x){return x.datum!==m.datum;});S.metingen.push({datum:String(m.datum),gewicht:+m.gewicht||0});}});
+  if(d.inst)S.inst=n.inst;
+  save();render();toast("Back-up teruggezet: "+cnt+" dagen, "+n.favs.length+" favorieten, "+n.metingen.length+" metingen.");
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",function(ev){
+  var b=ev.target.closest("[data-act]");if(!b)return;
+  var a=b.dataset.act,day,r;
+  if(a==="prev"){cur=shift(cur,-1);render();}
+  else if(a==="next"){if(cur<iso(new Date())){cur=shift(cur,1);render();}}
+  else if(a==="add"){openSheet(b.dataset.m,null);}
+  else if(a==="edit"){var e=getDay(cur).entries.filter(function(x){return x.id===b.dataset.id;})[0];if(e)openSheet(e.moment,e);}
+  else if(a==="water"){day=getDay(cur);var n=+b.dataset.n;day.water=day.water===n?n-1:n;setDay(cur,day);}
+  else if(a==="delw"){S.metingen=S.metingen.filter(function(m){return m.datum!==b.dataset.d;});syncGewicht();save();render();}
+  else if(a==="delfav"){S.favs.splice(+b.dataset.i,1);save();render();}
+  else if(a==="export"){exportData();}
+  else if(a==="copy"){try{navigator.clipboard.writeText(backupText()).then(function(){toast("Back-up gekopieerd. Plak hem in Notities of een mail aan jezelf.");},function(){toast("Kopiëren lukt hier niet. Gebruik Bewaar back-up.");});}catch(e2){toast("Kopiëren lukt hier niet. Gebruik Bewaar back-up.");}}
+  else if(a==="import-text"){var t=$("imp-text").value.trim();if(!t){toast("Plak eerst de tekst van je back-up in het vak.");return;}importText(t);}
+  else if(a==="close"){closeSheet();}
+  else if(a==="moment"){sheet.moment=b.dataset.m;renderSeg();}
+  else if(a==="pick"){r=resList[+b.dataset.i];if(!r)return;sheet.rows.push(JSON.parse(JSON.stringify(r)));if($("q")){$("q").value="";}renderResults();renderRows();}
+  else if(a==="mul"){r=sheet.rows[+b.dataset.i];r.g=Math.round(FOOD[r.f].g*num(b.dataset.x)*10)/10;$("r"+b.dataset.i+"-g").value=String(r.g).replace(".",",");$("calc-"+b.dataset.i).innerHTML=calcText(r);renderTotal();}
+  else if(a==="star"){r=sheet.rows[+b.dataset.i];r.fav=!r.fav;b.classList.toggle("on",r.fav);b.setAttribute("aria-pressed",r.fav?"true":"false");}
+  else if(a==="delrow"){sheet.rows.splice(+b.dataset.i,1);renderRows();}
+  else if(a==="addrow"){sheet.rows.push(blank());renderRows();var el=$("r"+(sheet.rows.length-1)+"-desc");if(el)el.focus();}
+  else if(a==="save"){saveSheet();}
+  else if(a==="delentry"){day=getDay(cur);day.entries=day.entries.filter(function(x){return x.id!==sheet.editId;});closeSheet();setDay(cur,day);}
+});
+document.addEventListener("input",function(ev){
+  var t=ev.target;
+  if(t.id==="q"){renderResults();return;}
+  if(sheet&&t.dataset&&t.dataset.f){
+    var r=sheet.rows[+t.dataset.i];r[t.dataset.f]=t.value;
+    if(t.dataset.f==="g")$("calc-"+t.dataset.i).innerHTML=calcText(r);
+    renderTotal();
+  }
+});
+document.addEventListener("change",function(ev){
+  var t=ev.target;
+  if(t.id==="daytype"){var day=getDay(cur);day.type=t.value;setDay(cur,day);}
+  else if(t.dataset&&t.dataset.inst){
+    var v=num(t.value),k=t.dataset.inst;
+    if(k!=="marge"&&v<=0){toast("Vul een getal groter dan 0 in.");render();return;}
+    if(k.indexOf("kcal.")===0)S.inst.kcal[k.slice(5)]=Math.round(v);else S.inst[k]=k==="marge"?Math.max(0,Math.round(v)):v;
+    save();render();
+  }
+  else if(t.id==="imp-file"&&t.files&&t.files[0]){
+    var fr=new FileReader();fr.onload=function(){importText(String(fr.result));};fr.onerror=function(){toast("Dit bestand kan niet gelezen worden.");};fr.readAsText(t.files[0]);
+  }
+});
+document.addEventListener("submit",function(ev){
+  ev.preventDefault();
+  if(ev.target.id==="wform"){
+    var d=$("w-date").value,kg=num($("w-kg").value);
+    if(!d||kg<30||kg>250){toast("Vul een datum en een gewicht in kg in, bv. 72,0.");return;}
+    S.metingen=S.metingen.filter(function(m){return m.datum!==d;});
+    S.metingen.push({datum:d,gewicht:Math.round(kg*10)/10});
+    syncGewicht();save();render();
+  }
+});
+function syncGewicht(){var ms=sortedM();if(ms.length)S.inst.gewicht=ms[ms.length-1].gewicht;}
+window.addEventListener("hashchange",function(){if(sheet)closeSheet();render();window.scrollTo(0,0);});
+document.addEventListener("keydown",function(ev){if(ev.key==="Escape"&&sheet)closeSheet();});
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&!sheet)render();});
+
+render();
+if(navigator.storage&&navigator.storage.persist){navigator.storage.persist().catch(function(){});}
+if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register("sw.js").catch(function(){});}
+})();
+</script>
+</body>
+</html>
